@@ -3,12 +3,23 @@ import os
 import numpy as np
 import PIL.Image as PILage
 
-import osFunctions.py
+import osFunctions
+import realise
 
-REGIONS_DIRECTORY = "test"
+REGIONS_DIRECTORY = "region"
+REGION_BOUNDS = [ # Inclusive
+    [-5,-1], # Top left corner
+    [1,5]  # Bottom right corner
+]
 
 # Check whether REGIONS_DIRECTORY exists, if not create it and prompt user to upload files
-osFunctions(REGIONS_DIRECTORY, fail_response = "No regions directory found, please upload your .mca files to the '{REGIONS_DIRECTORY}' directory, then restart the program.")
+regionsExist = osFunctions.check_for_directory(REGIONS_DIRECTORY, 
+                                               fail_response = "No regions directory found, please upload your .mca files to the '{REGIONS_DIRECTORY}' directory, then restart the program.")
+if regionsExist:
+    if os.listdir(REGIONS_DIRECTORY) == []:
+        osFunctions.quit(f"No regions found in '{REGIONS_DIRECTORY}', please upload at least one .mca file and try again")
+else:
+    osFunctions.quit("")
 
 # Removes additional syntax from the file name of a region, returning a tuple of values
 def get_region_coords_from_file_name(filename):
@@ -19,57 +30,64 @@ def get_region_coords_from_file_name(filename):
     
     return tuple(regionCoordinates)
 
-# Converting region relative coordinates to real chunk coodinates
-def realise_chunk(region_coordinates, relative_coordinates):
-    M = 10000
-    region_coordinates = [region_coordinates[0] + M, region_coordinates[1] + M]
-    zero_point = [region_coordinates[0] * 32, region_coordinates[1] * 32]
-    coordinate = [zero_point[0] + relative_coordinates[0], zero_point[1] + relative_coordinates[1]]
-    coordinate = [coordinate[0] - (M*32), coordinate[1] - (M*32)]
-    return coordinate
-
 # Creating suitably sized array of Tuples which can be later converted to an image
 regionFileNames = []
 xRange = [0,0]
 zRange = [0,0]
-for regionFileName in os.listdir("region"):
+for regionFileName in os.listdir(REGIONS_DIRECTORY):
     regionFileNames.append(regionFileName)
     regionCoordinates = get_region_coords_from_file_name(regionFileName)
 
-    if regionCoordinates[0] < xRange[0]: # Finding minX
-        xRange[0] = regionCoordinates[0]
-    if regionCoordinates[1] > xRange[1]: # Finding maxX
-        xRange[1] = regionCoordinates[1]
+    xRange[0] = min(regionCoordinates[0], xRange[0])
+    xRange[1] = max(regionCoordinates[1], xRange[1])
+    zRange[0] = min(regionCoordinates[0], zRange[0])
+    zRange[1] = max(regionCoordinates[1], zRange[1])
 
-    if regionCoordinates[0] < zRange[0]: # Finding minZ
-        zRange[0] = regionCoordinates[0]
-    if regionCoordinates[1] > zRange[1]: # Finding maxZ
-        zRange[1] = regionCoordinates[1]
+#xRange[0] = min(xRange[0], REGION_BOUNDS[0][0])
+#xRange[1] = max(xRange[1], REGION_BOUNDS[1][0])
+#zRange[0] = min(zRange[0], REGION_BOUNDS[0][1])
+#zRange[1] = max(zRange[1], REGION_BOUNDS[1][1])
+
+xRange[0] = REGION_BOUNDS[0][0]
+xRange[1] = REGION_BOUNDS[1][0]+1
+zRange[0] = REGION_BOUNDS[0][1]
+zRange[1] = REGION_BOUNDS[1][1]+1
 
 xRangeMagnitude = xRange[1] - xRange[0] # Calculating the magnitude of the range of possible values 
-zRangeMagnitude = zRange[1] - zRange[0] # Determines the size of the image
+zRangeMagnitude = zRange[1] - zRange[0] # which determines the size of the image
 
 chunkData = np.zeros((32*xRangeMagnitude,32*zRangeMagnitude, 3), dtype=np.uint8)
+print(f"Image output will be {len(chunkData[0])}x{len(chunkData)}")
 
 # Reading Data From Region
 for regionFileName in regionFileNames:
+    regionCoordinates = get_region_coords_from_file_name(regionFileName)
+
+    # Filtering out results outside of the bounds of the map
+    xValid = REGION_BOUNDS[0][0] <= regionCoordinates[0] <= REGION_BOUNDS[1][0]
+    zValid = REGION_BOUNDS[0][1] <= regionCoordinates[1] <= REGION_BOUNDS[1][1]
+    if not(xValid) or not(zValid):
+        continue
+
     print(f"Scanning region {regionFileName}")
     regionFilePath = REGIONS_DIRECTORY + "/" + regionFileName
     region = anvil.Region.from_file(regionFilePath)
-    regionCoordinates = get_region_coords_from_file_name(regionFileName)
     for relChunkX in range(0,32):
         for relChunkZ in range(0,32):
             try:
                 chunk = region.get_chunk(relChunkX, relChunkZ)
             except:
                 chunk = None
+                continue
 
-            realChunkCoord = realise_chunk(regionCoordinates, [relChunkX, relChunkZ])
-            if chunk != None:    
+            realChunkCoord = realise.realise_chunk(regionCoordinates, [relChunkX, relChunkZ])  
+            try: # Some chunks overhang outside the map area, cull them.
                 chunkData[
                     realChunkCoord[0] - xRange[0]*32,
-                    realChunkCoord[1] - zRange[0]*32
-                    ] = [255,0,0]
+                   realChunkCoord[1] - zRange[0]*32
+                  ] = [255,0,0]
+            except:
+                pass
 
 # Converting data to an image
 
