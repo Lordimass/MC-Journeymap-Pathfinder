@@ -2,7 +2,7 @@ import anvil
 import numpy as np
 import PIL.Image as PILage
 
-regionCoord = [-1, -1]
+regionCoord = [-1, 0]
 region = anvil.Region.from_file(f"region/r.{regionCoord[0]}.{regionCoord[1]}.mca")
 
 def realise_chunk(region_coordinates, relative_coordinates):
@@ -18,15 +18,17 @@ data = np.zeros((32, 32, 3), dtype=np.uint8)
 for relChunkX in range(0,32):
     for relChunkZ in range(0,32):
         try:
-            print(region.get_chunk(relChunkX, relChunkZ))
+            chunk = region.get_chunk(relChunkX, relChunkZ)
             valid = True
         except:
             print(f"No chunk found at {realise_chunk(regionCoord, [relChunkX, relChunkZ])}, (Relative {relChunkX}, {relChunkZ})")
             valid = False
+        
+        print(int(str(chunk.data["InhabitedTime"])) * 2)
 
         realCoords = realise_chunk(regionCoord, [relChunkX, relChunkZ])
         if valid:
-            data[realCoords[0]][realCoords[1]] = (255,0,0)
+            data[realCoords[0]][realCoords[1]] = (255,(int(str(chunk.data["InhabitedTime"]))/13202)*255,0)
 
 img = PILage.fromarray(data, mode="RGB")
 img.show()

@@ -11,6 +11,11 @@ REGION_BOUNDS = [ # Inclusive
     [-5,-1], # Top left corner
     [1,5]  # Bottom right corner
 ]
+BORDER_CENTRE = (-625//16, 1559//16)
+BORDER_DIAMETER = 2000//16
+
+def int_atr(object, attribute):
+    return int(str(object.data[attribute]))
 
 # Check whether REGIONS_DIRECTORY exists, if not create it and prompt user to upload files
 regionsExist = osFunctions.check_for_directory(REGIONS_DIRECTORY, 
@@ -60,6 +65,7 @@ chunkData = np.zeros((32*xRangeMagnitude,32*zRangeMagnitude, 3), dtype=np.uint8)
 print(f"Image output will be {len(chunkData[0])}x{len(chunkData)}")
 
 # Reading Data From Region
+maxInhabitedTime = 0
 for regionFileName in regionFileNames:
     regionCoordinates = get_region_coords_from_file_name(regionFileName)
 
@@ -76,18 +82,49 @@ for regionFileName in regionFileNames:
         for relChunkZ in range(0,32):
             try:
                 chunk = region.get_chunk(relChunkX, relChunkZ)
+                maxInhabitedTime = max(maxInhabitedTime, int_atr(chunk, "InhabitedTime"))
             except:
                 chunk = None
                 continue
 
             realChunkCoord = realise.realise_chunk(regionCoordinates, [relChunkX, relChunkZ])  
             try: # Some chunks overhang outside the map area, cull them.
+                value = (int_atr(chunk, "InhabitedTime")/19684776 + 0.01)*255 
+
                 chunkData[
                     realChunkCoord[0] - xRange[0]*32,
-                   realChunkCoord[1] - zRange[0]*32
-                  ] = [255,0,0]
+                    realChunkCoord[1] - zRange[0]*32
+                  ] = [value, value, value]
             except:
                 pass
+
+print(maxInhabitedTime)
+
+
+# Highlighting World Border
+centre = (BORDER_CENTRE[0] - xRange[0]*32, BORDER_CENTRE[1] - zRange[0]*32)
+print(centre)
+for z in range(len(chunkData)):
+    for x in range(len(chunkData[0])):
+        xHighlight = not(centre[0] - (BORDER_DIAMETER//2) <= x <= centre[0] + (BORDER_DIAMETER//2))
+        zHighlight = not(centre[1] - (BORDER_DIAMETER//2) <= z <= centre[1] + (BORDER_DIAMETER//2))
+        if xHighlight or zHighlight:
+            chunkData[z,x][0] = 255/4
+
+chunkData[centre[0],centre[1]] = (255,0,0)
+
+# Colour based on inhabited time
+'''for chunk in chunks:
+    pxX = int_atr(chunk, "xPos") - xRange[0]*32
+    pxY = int_atr(chunk, "yPos") - zRange[0]*32
+    if pxX % 100 == 0 and pxY % 100 == 0:
+        print(int_atr(chunk, "InhabitedTime"))
+    try:
+        chunkData[pxX][pxY][1] = (int_atr(chunk, "InhabitedTime") / maxInhabitedTime) * 255
+    except:
+        #print(e)
+        pass
+    #print(chunkData[pxX][pxY][1])'''
 
 # Converting data to an image
 
