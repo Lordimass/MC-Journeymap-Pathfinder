@@ -61,7 +61,7 @@ zRange[1] = REGION_BOUNDS[1][1]+1
 xRangeMagnitude = xRange[1] - xRange[0] # Calculating the magnitude of the range of possible values 
 zRangeMagnitude = zRange[1] - zRange[0] # which determines the size of the image
 
-chunkData = np.zeros((32*xRangeMagnitude,32*zRangeMagnitude, 3), dtype=np.uint8)
+chunkData = np.zeros((32*xRangeMagnitude,32*zRangeMagnitude, 4), dtype=np.uint8)
 print(f"Image output will be {len(chunkData[0])}x{len(chunkData)}")
 
 # Reading Data From Region
@@ -89,45 +89,27 @@ for regionFileName in regionFileNames:
 
             realChunkCoord = realise.realise_chunk(regionCoordinates, [relChunkX, relChunkZ])  
             try: # Some chunks overhang outside the map area, cull them.
-                value = (int_atr(chunk, "InhabitedTime")/19684776 + 0.01)*255 
+                value = (int_atr(chunk, "InhabitedTime")/19684776)*255 
 
                 chunkData[
                     realChunkCoord[0] - xRange[0]*32,
                     realChunkCoord[1] - zRange[0]*32
-                  ] = [value, value, value]
+                  ] = [255, 255, 255, value]
             except:
                 pass
 
-print(maxInhabitedTime)
+print(f"MaxInhabitedTime: {maxInhabitedTime}")
 
-
-# Highlighting World Border
+# Cropping to World Border
 centre = (BORDER_CENTRE[0] - xRange[0]*32, BORDER_CENTRE[1] - zRange[0]*32)
-print(centre)
-for z in range(len(chunkData)):
-    for x in range(len(chunkData[0])):
-        xHighlight = not(centre[0] - (BORDER_DIAMETER//2) <= x <= centre[0] + (BORDER_DIAMETER//2))
-        zHighlight = not(centre[1] - (BORDER_DIAMETER//2) <= z <= centre[1] + (BORDER_DIAMETER//2))
-        if xHighlight or zHighlight:
-            chunkData[z,x][0] = 255/4
+col_min = centre[1] - (BORDER_DIAMETER//2)
+col_max = centre[1] + (BORDER_DIAMETER//2)
+row_min = centre[0] - (BORDER_DIAMETER//2)
+row_max = centre[0] + (BORDER_DIAMETER//2)
 
-chunkData[centre[0],centre[1]] = (255,0,0)
-
-# Colour based on inhabited time
-'''for chunk in chunks:
-    pxX = int_atr(chunk, "xPos") - xRange[0]*32
-    pxY = int_atr(chunk, "yPos") - zRange[0]*32
-    if pxX % 100 == 0 and pxY % 100 == 0:
-        print(int_atr(chunk, "InhabitedTime"))
-    try:
-        chunkData[pxX][pxY][1] = (int_atr(chunk, "InhabitedTime") / maxInhabitedTime) * 255
-    except:
-        #print(e)
-        pass
-    #print(chunkData[pxX][pxY][1])'''
+chunkData = chunkData[col_min:col_max+1, row_min:row_max+1]
 
 # Converting data to an image
-
-img = PILage.fromarray(chunkData, mode="RGB")
+img = PILage.fromarray(chunkData, mode="RGBA")
 img.show()
 img.save("output.png")
