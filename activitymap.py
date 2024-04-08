@@ -11,8 +11,8 @@ REGION_BOUNDS = [ # Inclusive
     [-5,-1], # Top left corner
     [1,5]  # Bottom right corner
 ]
-BORDER_CENTRE = (-625//16, 1559//16)
-BORDER_DIAMETER = 2000//16
+BORDER_CENTRE = (-625//16, 1559//16)  # Floor division by 16 because these numbers should be given in chunks
+BORDER_DIAMETER = 2000         //16
 
 def int_atr(object, attribute):
     return int(str(object.data[attribute]))
@@ -47,11 +47,6 @@ for regionFileName in os.listdir(REGIONS_DIRECTORY):
     xRange[1] = max(regionCoordinates[1], xRange[1])
     zRange[0] = min(regionCoordinates[0], zRange[0])
     zRange[1] = max(regionCoordinates[1], zRange[1])
-
-#xRange[0] = min(xRange[0], REGION_BOUNDS[0][0])
-#xRange[1] = max(xRange[1], REGION_BOUNDS[1][0])
-#zRange[0] = min(zRange[0], REGION_BOUNDS[0][1])
-#zRange[1] = max(zRange[1], REGION_BOUNDS[1][1])
 
 xRange[0] = REGION_BOUNDS[0][0]
 xRange[1] = REGION_BOUNDS[1][0]+1
